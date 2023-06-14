@@ -1,0 +1,132 @@
+---
+title: "Leukemia patients - Survival Analysis"
+output:
+  word_document: default
+  html_document:
+    pdf_print: 
+     
+  pdf_document: default
+---
+
+# Description:
+
+This report analyzes the effect of a treatment on 42 children with acute leukemia . Patients were observed until they relapsed ,dropped out ,or the study ended.
+
+# Methodology:
+
+This report uses non-parametric techniques to observe difference between the placebo and the treatment group. A Kaplan-Meier Estimates is computed for each group in order to observe the survival function of each independently . A log rank test is then performed to test whether both groups are significantly different or not.
+
+## Variable Descriptions
+
+-   Time : *Represents the time to relapse/censor for each patient*
+
+-   Treatment : *Represents whether subject received a treatment or not (treated=1, placebo=0 )*
+
+-   Failure : *Represents whether subject relapsed or censored (relapsed =1 , censored = 0 )*
+
+## Imports
+
+```{r message=FALSE, warning=FALSE, results='hide'}
+library(readxl)
+library(ggplot2)
+library(dplyr)
+library(epiDisplay)
+library(epicalc)
+library(survival)
+library(survminer)
+
+```
+
+```{r}
+df <- read_excel("leukemia.xlsx") # total ob.servations 42
+df <- df[-c(4:7)] # dropping description columns
+```
+
+### Wrangling
+
+```{r}
+groupss <- factor(df$Treatment,labels=c("Placebo","Treatment"))
+event <- factor(df$Failure,labels=c("Censored","Died"))
+df1<- cbind(df,event)
+ID<- c(1:42)
+df1<- cbind(df,ID)
+df1$Treatment <- groupss
+```
+
+#### Follow-Up graph
+
+```{r warning=FALSE}
+
+ggplot(df1, 
+       aes(x=df1$Time, 
+           y=df1$ID)) +
+  geom_segment(aes(x = 1, 
+                   xend = df1$Time, 
+                   y = df1$ID, 
+                   yend = df1$ID),
+               color = "lightgrey") +
+  labs (x = "Time to Death/ Censored (years)",
+        y = "Patient ID",
+        title = "Time to Death",
+        subtitle = "Follow-up time to 42 patients") +
+  theme_minimal()+
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank()) +
+  geom_point(aes(shape=event), size = 3) 
+```
+
+Patients 22 and above represents the placebo group
+
+#### Failure vs Censoring 
+
+```{r}
+df3 <- df1
+df3$Failure <- factor(df1$Failure,labels=c("Censored","Relapse"))
+plot(df3$Failure)
+```
+
+## Kaplan-Meier Estimates / Treatment group
+
+kaplan Meir refers to................
+
+```{r}
+df.treat <- df1[ which(df1$Treatment=='Treatment'),] # dividing into 2 groups 
+
+
+KMTREAT <- survfit(Surv(df.treat$Time, df.treat$Failure) ~ 1,conf.type="log-log", data = df.treat)
+summary(KMTREAT)
+
+```
+
+Comment
+
+## Kaplan-Meier Estimates /placebo group
+
+```{r}
+df.placebo <- df1[ which(df1$Treatment=='Placebo'),]
+
+KMPLACE <- survfit(Surv(df.placebo$Time, df.placebo$Failure) ~ 1,conf.type="log-log", data = df.placebo)
+summary(KMPLACE)
+
+```
+
+## Survival-curves
+
+```{r}
+library(ggfortify)
+
+
+combinedKM <- survfit(Surv(df1$Time, df1$Failure) ~ df1$Treatment, data = df1)
+
+autoplot(combinedKM)
+```
+
+#### Comparing survival functions /Log Rank test
+
+```{r}
+
+ggsurvplot(combinedKM, data = df1, pval = TRUE, 
+           xlab="Time to Relapse", surv.median.line = c("hv"))
+
+survdiff(Surv(df1$Time, df1$Failure) ~ df1$Treatment, data = df1)
+```
